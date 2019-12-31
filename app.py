@@ -14,18 +14,12 @@ from dash.dependencies import Output, Input, State
 from dash.exceptions import PreventUpdate
 import plotly.express as px
 import numpy as np
-
 import pandas as pd
 
-app = dash.Dash(__name__,
-                external_stylesheets=['assets/bWLwgP.css', 'assets/myown.css'],
-                suppress_callback_exceptions=True)
+import flask
 
-# app.config.suppress_callback_exceptions = True
-app.layout = html.Div([
-    dcc.Location(id='url', refresh=False),
-    html.Div(id='page-content')
-])
+server = flask.Flask(__name__)
+app = dash.Dash(__name__, server=server)
 
 app.layout = html.Div([
     html.Div(id='row_1',
@@ -63,9 +57,8 @@ app.layout = html.Div([
                               html.Div(id='数据存储区域',
                                        children=[
                                            html.H6('数据仓'),
-                                           dcc.Store(id='daily_file_store', storage_type='local', data='waiting file'),
-                                           dcc.Store(id='daily_filename_store', storage_type='local',
-                                                     data='waiting filename'),
+                                           dcc.Store(id='daily_file_store', storage_type='local'),
+                                           dcc.Store(id='daily_filename_store', storage_type='local'),
                                            html.Tbody([
                                                html.Th('文件内容'),
                                                html.Th('文件名'),
@@ -205,7 +198,7 @@ def parse_contents(contents, filename, date):
             return df.to_json(), filename
     except Exception as e:
         print(e)
-        return json.dumps({'error': '请选择csv或xlsx文件'}), 'no file'
+        return None, None
 
 
 @app.callback([Output('daily_file_store', 'data'),
@@ -221,9 +214,11 @@ def update_output(list_of_contents, list_of_names, list_of_dates, file, fname):
         #     parse_contents(c, n, d) for c, n, d in
         #     zip(list_of_contents, list_of_names, list_of_dates)]
         children = parse_contents(list_of_contents, list_of_names, list_of_dates)
+        return children
     else:
-        children = file, fname
-    return children
+        # children = json.dumps({'asin': 'none', 'sub_asin': 'none'}), 'no_file'
+        return None, None
+    # return children
 
 
 @app.callback([Output('daily_file_td', 'children'),
@@ -232,7 +227,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates, file, fname):
               [State('daily_file_store', 'data'),
                State('daily_filename_store', 'data')])
 def get_td(mt, file_data, filename):
-    if not mt:
+    if not (mt and filename and file_data):
         return 'filedata...', 'filename...'
     else:
         return file_data[:15], filename
@@ -240,23 +235,27 @@ def get_td(mt, file_data, filename):
 
 @app.callback(Output('select_asin', 'options'),
               [Input('daily_file_store', 'modified_timestamp')],
-              [State('daily_file_store', 'data')])
-def get_asin(mt, file_data):
-    if not mt:
+              [State('daily_file_store', 'data'),
+               State('daily_filename_store', 'data')])
+def get_asin(mt, file_data, file_name):
+    if not (mt and file_name):
         return [{'label': 'none', 'value': 'none'}]
     else:
-        df = pd.DataFrame(json.loads(file_data))
-        asin_list = df['asin'].unique()
-        result = [{'label': i, 'value': i} for i in asin_list]
-        return result
+        print(file_data)
+        if file_data:
+            df = pd.DataFrame(json.loads(file_data))
+            asin_list = df['asin'].unique()
+            result = [{'label': i, 'value': i} for i in asin_list]
+            return result
 
 
 @app.callback(Output('select_sub_asin', 'options'),
               [Input('daily_file_store', 'modified_timestamp'),
                Input('select_asin', 'value')],
-              [State('daily_file_store', 'data')])
-def get_sub_asin(mt, asin, file_data):
-    if not (mt and asin):
+              [State('daily_file_store', 'data'),
+               State('daily_filename_store', 'data')])
+def get_sub_asin(mt, asin, file_data, file_name):
+    if not (mt and asin and file_data and file_name):
         return [{'label': 'none', 'value': 'none'}]
     else:
         df = pd.DataFrame(json.loads(file_data))
@@ -286,7 +285,7 @@ def get_pivot(data_info):
             except Exception as e:
                 print(e)
         return strr
-    # print(data_info.head())
+
     mode_list = data_info.columns   # '已订购商品销售额'
     if '已订购商品销售额' in mode_list:
         data_info['已订购商品销售额'] = data_info['已订购商品销售额'].apply(get_num)
@@ -314,17 +313,18 @@ def get_pivot(data_info):
 def get_one_graph(mt, data):
     if not (mt and data):
         return []
-    df_row = pd.DataFrame(json.loads(data))
-    df = df_row.groupby(by=['asin', 'date']).agg(
-        {'买家访问次数': np.sum, '已订购商品数量': np.sum}).reset_index()
-    children = dcc.Graph(
-        figure=px.scatter(df, x='date', y='asin',
-                          size='买家访问次数', color='已订购商品数量',
-                          title='父ASIN汇总',
-                          height=600),
-        className='six columns',
-    )
-    return children
+    else:
+        df_row = pd.DataFrame(json.loads(data))
+        df = df_row.groupby(by=['asin', 'date']).agg(
+            {'买家访问次数': np.sum, '已订购商品数量': np.sum}).reset_index()
+        children = dcc.Graph(
+            figure=px.scatter(df, x='date', y='asin',
+                              size='买家访问次数', color='已订购商品数量',
+                              title='父ASIN汇总',
+                              height=600),
+            className='six columns',
+        )
+        return children
 
 
 @app.callback(Output('daily_graph_asin', 'children'),
@@ -334,17 +334,18 @@ def get_one_graph(mt, data):
 def get_asin_graph(mt, asin, data):
     if not(mt and asin and data):
         return []
-    df_row = pd.DataFrame(json.loads((data)))
-    df = df_row[df_row['asin'] == asin].groupby(by=['sub_asin', 'date']).agg(
-        {'买家访问次数': np.sum, '已订购商品数量': np.sum}).reset_index()
-    children = dcc.Graph(
-        figure=px.scatter(df, x='date', y='sub_asin',
-                          size='买家访问次数', color='已订购商品数量',
-                          title="所选父asin-" + asin + '-汇总',
-                          height=600),
-        className='six columns')
+    else:
+        df_row = pd.DataFrame(json.loads(data))
+        df = df_row[df_row['asin'] == asin].groupby(by=['sub_asin', 'date']).agg(
+            {'买家访问次数': np.sum, '已订购商品数量': np.sum}).reset_index()
+        children = dcc.Graph(
+            figure=px.scatter(df, x='date', y='sub_asin',
+                              size='买家访问次数', color='已订购商品数量',
+                              title="所选父asin-" + asin + '-汇总',
+                              height=600),
+            className='six columns')
 
-    return children
+        return children
 
 
 @app.callback(Output('daily_graph_sub_asin', 'children'),
@@ -353,65 +354,47 @@ def get_asin_graph(mt, asin, data):
               [State('daily_file_store', 'data')])
 def get_graph_sub_asin(mt, sub_asin, data):
     if not (mt and sub_asin):
-        raise PreventUpdate
-    df = pd.DataFrame(json.loads(data))
-    df_sub_asin = df[df['sub_asin'] == sub_asin]
-    # print(df.columns)
-    # data_pivot = get_pivot(df)
-    # print('子ASIN数据：', df_sub_asin)
-    # print(data_pivot.columns.levels[0].to_list())
-    # if sub_asin not in data_pivot.columns.levels[2].to_list():
-    #     raise PreventUpdate
-    # mode_list = data_pivot.columns.levels[0].to_list()
-    # print("mode_list:", mode_list)
-    # df = data_pivot.xs(sub_asin, level=2, axis=1, drop_level=False)
-    # out_dict = {}
-    # for each in mode_list:
-    #     out_dict[each] = list(df[each].to_dict('list').values())[0]
-    #     print(out_dict)
-    # children = []
-    # for i in df.columns[3:]:
-    #     trace = px.bar(df_sub_asin, x='date', y=i, text=i)
-    #     trace.update_traces(textposition='auto')
-    #     graph = dcc.Graph(trace)
-    #     children.append(graph)
-    children = [dcc.Graph(
-        figure=px.bar(df_sub_asin, x='date', y=i, text=i).update_traces(textposition='auto'),
-        className='six columns') for i in df.columns[3:]]
+        return []
+    else:
+        df = pd.DataFrame(json.loads(data))
+        df_sub_asin = df[df['sub_asin'] == sub_asin]
+        children = [dcc.Graph(
+            figure=px.bar(df_sub_asin, x='date', y=i, text=i).update_traces(textposition='auto'),
+            className='six columns') for i in df.columns[3:]]
 
 
-    # children = [
-    #     dcc.Graph(
-    #         figure=dict(
-    #             data=[dict(x=list(data_pivot.index),
-    #                        y=out_dict.get(i),
-    #                        name=i,
-    #                        type='bar',
-    #                        text=[str(m) for m in out_dict.get(i)],
-    #                        textposition="bottom center",
-    #                        )],
-    #             layout=dict(
-    #                 mode='markers+text',
-    #                 title=i,
-    #                 showlegend=True,
-    #                 # margin={'l':30, 'r':30},
-    #                 showdata=True,
-    #                 padding={'l': 5, 'r': 5},
-    #                 # margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
-    #                 legend={'x': 0, 'y': 1},
-    #                 # hover=[i],
-    #                 hovermode='closest',
-    #                 )
-    #             ),
-    #         className='six columns',
-    #         # style={
-    #         #     'border-width': '3px',
-    #         #     'border': 'dimgray',
-    #         #     'border-style': 'solid',
-    #         # }
-    #         ) for i in out_dict.keys()]
+        # children = [
+        #     dcc.Graph(
+        #         figure=dict(
+        #             data=[dict(x=list(data_pivot.index),
+        #                        y=out_dict.get(i),
+        #                        name=i,
+        #                        type='bar',
+        #                        text=[str(m) for m in out_dict.get(i)],
+        #                        textposition="bottom center",
+        #                        )],
+        #             layout=dict(
+        #                 mode='markers+text',
+        #                 title=i,
+        #                 showlegend=True,
+        #                 # margin={'l':30, 'r':30},
+        #                 showdata=True,
+        #                 padding={'l': 5, 'r': 5},
+        #                 # margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
+        #                 legend={'x': 0, 'y': 1},
+        #                 # hover=[i],
+        #                 hovermode='closest',
+        #                 )
+        #             ),
+        #         className='six columns',
+        #         # style={
+        #         #     'border-width': '3px',
+        #         #     'border': 'dimgray',
+        #         #     'border-style': 'solid',
+        #         # }
+        #         ) for i in out_dict.keys()]
 
-    return children
+        return children
 
 
 # @app.callback(Output('show_table', 'children'),
@@ -450,13 +433,14 @@ def get_graph_sub_asin(mt, sub_asin, data):
               Input('select_sub_asin', 'value')],
               [State('daily_file_store', 'data')])
 def get_pic_bar(mt, sub_asin, data):
-    if not (sub_asin and data):
+    if not (mt and sub_asin and data):
         return []
-    local_pic = r'/assets/pic/'
-    pic_url = local_pic + sub_asin + '.jpg'
-    children = html.Img(src=pic_url, width=200, height=200)
+    else:
+        local_pic = r'/assets/pic/'
+        pic_url = local_pic + sub_asin + '.jpg'
+        children = html.Img(src=pic_url, width=200, height=200)
 
-    return children
+        return children
 
 # 定义路由
 
