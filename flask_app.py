@@ -16,239 +16,159 @@ from dash.exceptions import PreventUpdate
 import plotly.express as px
 import numpy as np
 import pandas as pd
-from asin_dict import asin_pic_dict
+
 
 import flask
 
 server = flask.Flask(__name__)
 app = dash.Dash(__name__, server=server)
 
-
 app.layout = html.Div([
     html.Title('Phebi数据分析'),
-    html.Div(id='row_1',
-             style={'display': 'flex'},
-             children=[
-                 html.Div(id='上传数据',
-                          className='left_bar',
-                          children=[
-                              html.Div(id='数据上传区域',
-                                       children=[
-                                           html.H6('数据源'),
-                                           dcc.Upload(
-                                               id='stock_file',
-                                               children=html.Div([
-                                                   html.A('选择库存文件')]),
-                                               className='my_upload',
-                                               multiple=False),
-                                           dcc.Upload(
-                                               id='daily_file',
-                                               children=html.Div([
-                                                   html.A('选择日常数据文件')]),
-                                               className='my_upload',
-                                               multiple=False),
-                                           dcc.Upload(
-                                                id='ad_file',
-                                                children=html.Div([
-                                                   html.A('选择广告数据文件')]),
-                                                className='my_upload',
-                                                multiple=False
-                                           ),
-                                           dcc.Upload(
-                                               id='property_file',
-                                               children=html.Div([
-                                                   html.A('选择产品属性文件')]),
-                                               className='my_upload',
-                                               multiple=False),
-                                       ]),
-                              html.Div(id='数据存储区域',
-                                       children=[
-                                           dcc.Store(id='daily_file_store', storage_type='local'),
-                                           dcc.Store(id='daily_filename_store', storage_type='local'),
-                                           dcc.Store(id='ad_file_store', storage_type='local'),
-                                           dcc.Store(id='ad_filename_store', storage_type='local'),
-                                           html.Tbody([
-                                               html.Th('文件内容'),
-                                               html.Th('文件名'),
-                                               html.Tr([
-                                                   html.Td(id='daily_file_td'),
-                                                   html.Td(id='daily_filename_td'),
-                                               ]),
-                                               html.Tr([
-                                                   html.Td(id='ad_file_td'),
-                                                   html.Td(id='ad_filename_td'),
-                                               ])
-                                           ]),
-                                       ]),
-                          ]),
-                 html.Div(id='聚合数据展示区域',
-                          className='top_bar',
-                          children=[
-                              html.Div(id='daily_graph_ploy'),
-                              html.H5('聚合数据区域'),
-                              html.P('数据汇总、完成度等等')
-                          ]),
-             ]),
-    html.Div(id='row_2',
-             className='content_page',
-             children=[
-                 html.Div(
-                     className='columns',
+    html.Header(html.Meta(name="referrer", content="no-referrer")),
+    html.Div(
+        id='row_1',
+        style={'display': 'flex'},
+        children=[
+            html.Div(id='上传数据',
+                     className='left_bar',
                      children=[
-                         html.Div(
-                             id='ASIN选择',
-                             className='columns',
-                             style={'position': 'fixed', 'left': '2.5%', 'top': '75%', 'width': '350px'},
-                             children=[html.Div(
-                                          className='six columns',
-                                          children=[
-                                              dcc.Dropdown(id='select_cate_one',
-                                                           style={'width': '150px'},
-                                                           placeholder="一级类目",),
-                                              dcc.Dropdown(id='select_cate_two',
-                                                           style={'width': '150px'},
-                                                           placeholder="二级类目",),
-                                              dcc.Dropdown(id='select_fsku',
-                                                           style={'width': '150px'},
-                                                           placeholder="父sku",),
-                                              dcc.Dropdown(id='select_sku',
-                                                           style={'width': '150px'},
-                                                           placeholder="sku",),
-                                             ],
+                         html.Div(id='数据上传区域',
+                                  children=[
+                                      html.H6('数据源'),
+                                      dcc.Upload(
+                                          id='stock_file',
+                                          children=html.Div([
+                                              html.A('选择库存文件')]),
+                                          className='my_upload',
+                                          multiple=False),
+                                      dcc.Upload(
+                                          id='daily_file',
+                                          children=html.Div([
+                                              html.A('选择日常数据文件')]),
+                                          className='my_upload',
+                                          multiple=False),
+                                      dcc.Upload(
+                                          id='ad_file',
+                                          children=html.Div([
+                                              html.A('选择广告数据文件')]),
+                                          className='my_upload',
+                                          multiple=False
                                       ),
-                                      html.Div(
-                                          className='six columns',
-                                          children=[
-                                              dcc.Dropdown(id='select_ad_action', style={'width': '200px'},
-                                                           placeholder="广告活动",),
-                                              dcc.Dropdown(id='select_ad_group', style={'width': '200px'},
-                                                           placeholder="广告组",),
-                                              dcc.Dropdown(id='select_ad_words', style={'width': '200px'},
-                                                           placeholder="广告投放",),
-                                          ]
-                                      ),
+                                      dcc.Upload(
+                                          id='property_file',
+                                          children=html.Div([
+                                              html.A('选择产品属性文件')]),
+                                          className='my_upload',
+                                          multiple=False),
                                   ]),
-                         html.Div(
-                             id='pic_bar',
-                             style={'position': 'fixed', 'left': '3%', 'top': '42%'},
-                                  ),
-                         html.Div(
-                             children=[
-                                 html.Div(id='asin_cate_one_fig'),
-                                 html.Div(id='asin_cate_two_fig'),
-                             ]
-                         ),
-                         html.Div(
-                             id='父ASIN月度汇总',
-                             children=[
-                                      html.Div(id='asin_sum_fig')
-                                  ]),
-                         html.Div(
-                             id='父ASIN月度时域',
-                             children=[
-                                      html.Div(id='asin_time_fig')
-                                  ]),
-                         html.Div(id='子ASIN月度汇总',
+                         html.Div(id='数据存储区域',
                                   children=[
-                                      html.Div(id='sub_asin_sum_fig'),
+                                      dcc.Store(id='daily_file_store', storage_type='local'),
+                                      dcc.Store(id='daily_filename_store', storage_type='local'),
+                                      dcc.Store(id='ad_file_store', storage_type='local'),
+                                      dcc.Store(id='ad_filename_store', storage_type='local'),
+                                      html.Tbody([
+                                          html.Th('文件内容'),
+                                          html.Th('文件名'),
+                                          html.Tr([
+                                              html.Td(id='daily_file_td'),
+                                              html.Td(id='daily_filename_td'),
+                                          ]),
+                                          html.Tr([
+                                              html.Td(id='ad_file_td'),
+                                              html.Td(id='ad_filename_td'),
+                                          ])
+                                      ]),
                                   ]),
-                         html.Div(id='子ASIN月度时域',
-                                  children=[
-                                      html.Div(id='sub_asin_time_fig'),
-                                  ]),
-                         html.Div(id='广告组数据汇总',
-                                  children=[
-                                      html.Div(id='ad_action_sum_fig')
-                                  ]),
-                         html.Div(id='广告组数据',
-                                  children=[
-                                      html.Div(id='ad_group_sum_fig')
-                                  ]),
-                         html.Div(id='广告投放词',
-                                  children=[
-                                      html.Div(id='ad_keys_sum_fig')
-                                  ]),
-                         html.Div(id='客户搜索词',
-                                  children=[
-                                      html.Div(id='ad_key_words_search')
-                                  ])
-                     ]
-                 ),
-             ]),
-        ])
+                     ]),
+            html.Div(id='聚合数据展示区域',
+                     className='top_bar',
+                     children=[
+                         html.Div(id='daily_graph_ploy'),
+                         html.H5('聚合数据区域'),
+                         html.P('数据汇总、完成度等等')
+                     ]),
+        ]),
+    html.Div(
+        id='row_2',
+        className='content_page',
+        children=[
+            html.Div(
+                className='columns',
+                children=[
+                    html.Div(
+                        draggable='true',
+                        id='ASIN选择',
+                        className='columns',
+                        style={'position': 'fixed', 'left': '2.5%', 'top': '75%', 'width': '400px'},
+                        children=[
+                            html.Div(
+                                className='four columns',
+                                children=[
+                                    dcc.Dropdown(id='select_cate_one',
+                                                 style={'width': '120px'},
+                                                 placeholder="一级类目", ),
+                                    dcc.Dropdown(id='select_cate_two',
+                                                 style={'width': '120px'},
+                                                 placeholder="二级类目", ),
+                                    dcc.Dropdown(id='select_fsku',
+                                                 style={'width': '120px'},
+                                                 placeholder="父sku", ),
+                                    dcc.Dropdown(id='select_sku',
+                                                 style={'width': '120px'},
+                                                 placeholder="sku", ),
+                                ],
+                            ),
+                            html.Div(
+                                className='eight columns',
+                                children=[
+                                    dcc.Dropdown(id='select_ad_action',
+                                                 style={'width': '175px'},
+                                                 placeholder="广告活动", ),
+                                    dcc.Dropdown(id='select_ad_group',
+                                                 style={'width': '175px'},
+                                                 placeholder="广告组", ),
+                                    dcc.Dropdown(id='select_ad_words',
+                                                 style={'width': '175px'},
+                                                 placeholder="广告投放", ),
+                                ]
+                            ),
+                        ]),
+                    html.Div(
+                        id='pic_bar',
+                        style={'position': 'fixed', 'left': '3%', 'top': '42%'},
+                    ),
+                    html.Div(
+                        children=[
+                            html.Div(id='asin_cate_one_fig'),
+                            html.Div(id='asin_cate_two_fig'),
+                            html.Div(id='asin_cate_fsku_fig')
+                        ]
+                    ),
+                    html.Div(
+                        id='父ASIN月度汇总',
+                        children=[
+                            html.Div(id='asin_sum_fig'),
+                            html.Div(id='asin_time_fig'),
+                            html.Div(id='sub_asin_sum_fig'),
+                            html.Div(id='sub_asin_time_fig'),
 
-# page_table_layout = html.Div([
-#     html.Div(id='row_1',
-#              style={'display': 'flex'},
-#              children=[
-#                  html.Div(id='上传数据',
-#                           className='left_bar',
-#                           children=[
-#                               html.Div(id='数据上传区域',
-#                                        children=[
-#                                            html.H6('数据源'),
-#                                            dcc.Upload(
-#                                                id='stock_file',
-#                                                children=html.Div([
-#                                                    html.A('选择库存文件')]),
-#                                                className='my_upload',
-#                                                multiple=False),
-#                                            dcc.Upload(
-#                                                id='daily_file',
-#                                                children=html.Div([
-#                                                    html.A('选择日常数据文件')]),
-#                                                className='my_upload',
-#                                                multiple=False),
-#                                            dcc.Upload(
-#                                                id='property_file',
-#                                                children=html.Div([
-#                                                    html.A('选择产品属性文件')]),
-#                                                className='my_upload',
-#                                                multiple=False),
-#                                            html.H6('查看表格数据'),
-#                                            # html.Li(),
-#                                            # html.Br(),
-#                                            dcc.Link('跳转至数据面板',id='to_board', href='/')
-#                                        ]),
-#                               html.Div(id='数据存储区域',
-#                                        children=[
-#                                            html.H6('数据仓'),
-#                                            dcc.Store(id='daily_file_store', storage_type='local', data='waiting file'),
-#                                            dcc.Store(id='daily_filename_store', storage_type='local',
-#                                                      data='waiting filename'),
-#                                            html.Tbody([
-#                                                html.Th('文件内容'),
-#                                                html.Th('文件名'),
-#                                                html.Tr([
-#                                                    html.Td(id='daily_file_td'),
-#                                                    html.Td(id='daily_filename_td')
-#                                                ])
-#                                            ]),
-#                                        ]),
-#                           ]),
-#                  html.Div(id='聚合数据展示区域',
-#                           className='top_bar',
-#                           children=[
-#                               html.Div(id='daily_graph_ploy'),
-#                               html.H5('聚合数据区域'),
-#                               html.P('数据汇总、完成度等等')
-#                           ]),
-#              ]),
-#     html.Div(id='row_2',
-#              className='contetn_page',
-#              children=[html.Div(
-#                  id='show_table'
-#              )]),
-#         ])
+                        ]),
+                    html.Div(
+                        id='广告组数据汇总',
+                        children=[
+                            html.Div(id='ad_action_sum_fig'),
+                            html.Div(id='ad_group_sum_fig'),
+                            html.Div(id='ad_keys_sum_fig'),
+                            html.Div(id='ad_key_words_search')
+                             ]),
+                ]
+            ),
+        ]),
+])
 
-# page_board_layout = html.Div([
-#     html.H4('数据面板'),
-#     # html.Link(id='to_table', href='/table'),
-#     html.Link(id='to_index', href='/')
-# ])
-# print(os.path.realpath('.'))
-df_pro = pd.read_excel('goods_property.xlsx')
-# print(proper_df.head())
+df_pro = pd.read_excel('goods_property_链接.xlsx')
 
 
 # 上传数据
@@ -276,8 +196,8 @@ def parse_contents(contents, filename, date):
               [Input('daily_file', 'contents')],
               [State('daily_file', 'filename'),
                State('daily_file', 'last_modified'),
-              State('daily_file_store', 'data'),
-              State('daily_filename_store', 'data')])
+               State('daily_file_store', 'data'),
+               State('daily_filename_store', 'data')])
 def update_output(list_of_contents, list_of_names, list_of_dates, file, filename):
     if list_of_contents is not None:
         # children = [
@@ -291,7 +211,6 @@ def update_output(list_of_contents, list_of_names, list_of_dates, file, filename
         df_match = pd.merge(df, df_pro, left_on='sub_asin', right_on='sub_asin', how='inner')
         df_match['一级类目'].fillna('其他一级类目', inplace=True)
         df_match['二级类目'].fillna('其他二级类目', inplace=True)
-        print(df_match.columns)
         df_json = df_match.to_json()
         return df_json, filename
 
@@ -305,8 +224,8 @@ def update_output(list_of_contents, list_of_names, list_of_dates, file, filename
               [Input('ad_file', 'contents')],
               [State('ad_file', 'filename'),
                State('ad_file', 'last_modified'),
-              State('ad_file_store', 'data'),
-              State('ad_filename_store', 'data')])
+               State('ad_file_store', 'data'),
+               State('ad_filename_store', 'data')])
 def update_output(list_of_contents, list_of_names, list_of_dates, file, fname):
     if list_of_contents is not None:
         # children = [
@@ -333,7 +252,7 @@ def get_td(mt, file_data, file_name):
 
 
 @app.callback([Output('daily_file_td', 'children'),
-              Output('daily_filename_td', 'children')],
+               Output('daily_filename_td', 'children')],
               [Input('daily_file_store', 'modified_timestamp')],
               [State('daily_file_store', 'data'),
                State('daily_filename_store', 'data')])
@@ -378,7 +297,6 @@ def get_cate_one(mt, file_data, filename):
         if file_data:
             df = pd.DataFrame(json.loads(file_data))
             cate_list = df['一级类目'].unique()
-            print(cate_list)
             result = [{'label': i, 'value': i} for i in cate_list]
             return result
 
@@ -390,7 +308,7 @@ def get_cate_one(mt, file_data, filename):
               [State('daily_file_store', 'data'),
                State('daily_filename_store', 'data')])
 def get_sub_asin(mt, fsku, file_data, file_name):
-    if not (mt and fsku and file_data and file_name):
+    if not all([mt, fsku, file_data, file_name]):
         return [{'label': 'none', 'value': 'none'}]
     else:
         if file_data:
@@ -407,7 +325,7 @@ def get_sub_asin(mt, fsku, file_data, file_name):
               [State('daily_file_store', 'data'),
                State('daily_filename_store', 'data')])
 def get_cate_two(mt, cate_one, file_data, file_name):
-    if not (mt and cate_one and file_data and file_name):
+    if not all([mt, cate_one, file_data, file_name]):
         return [{'label': 'none', 'value': 'none'}]
     else:
         if file_data:
@@ -420,35 +338,60 @@ def get_cate_two(mt, cate_one, file_data, file_name):
 # 商品信息展示区域
 @app.callback(Output('pic_bar', 'children'),
               [Input('daily_file_store', 'modified_timestamp'),
-              Input('select_sku', 'value')],
+               Input('select_sku', 'value')],
               [State('daily_file_store', 'data')])
 def get_pic_bar(mt, sku, data):
-    if not (mt and sku and data):
+    if not all([mt, (sku != 'none'), data, sku]):
         return []
     else:
+        asin_dict = df_pro[df_pro['SKU'] == sku].to_dict('list')
+        empty_list = ['未注明']
+        godos_name = asin_dict.get('名称', empty_list)[0]
+        pic_url = asin_dict.get('链接', empty_list)[0]
+        asin = asin_dict.get('sub_asin', empty_list)[0]
+        goods_url = 'https://www.amazon.co.jp/dp/' + asin
+        color = asin_dict.get('颜色', empty_list)[0]
+        size = asin_dict.get('SIZE', empty_list)[0]
+        on_shelf_time = asin_dict.get('上架时间', empty_list)[0]
         # url = asin_pic_dict.get(sub_asin, '')
-        try:
-            url = df_pro[df_pro['SKU'] == sku]['链接'].value
-        except:
-            url = ''
-        print('url', url)
+
         children = html.Div([
             html.Div(
+                className='columns',
                 children=[
-                    html.Div(html.Img(src=url, width=160, height=160)),
+                    html.Div(html.Img(src=pic_url, width=160, height=160, style={"referrer": "no-referrer"})),
+                    # html.Tbody([
+                    #     html.Th('属性'),
+                    #     html.Th('属性值'),
+                    #     html.Tr([
+                    #         html.Td(''),
+                    #         html.Td(id='daily_filename_td'),
+                    #     ]),
+                    #     html.Tr([
+                    #         html.Td(id='ad_file_td'),
+                    #         html.Td(id='ad_filename_td'),
+                    #     ])
+                    # ])
                     html.Div(
-                        children=[html.A('|商品链接|', href='#', target='blank'),
-                                  html.P('|商品描述|'),
-                              ]
-                          )
-                    ]
-            )
+                        children=[
+                            html.Ul(
+                                className='my_ul',
+                                children=[
+                                    html.Li(html.A('商品链接', href=goods_url, target='blank')),
+                                    html.Li('名称：' + str(godos_name)),
+                                    html.Li('颜色：' + str(color)),
+                                    html.Li('尺寸：' + str(size)),
+                                    html.Li('上架时间：' + str(on_shelf_time))
+                                ]
+                            )
+                        ]
+                    )
+                ])
         ])
         return children
 
 
-# asin分类目展示
-
+# 一级类目展示
 @app.callback(Output('asin_cate_one_fig', 'children'),
               [Input('daily_file_store', 'modified_timestamp')],
               [State('daily_file_store', 'data')])
@@ -457,21 +400,62 @@ def get_asin_cate_one_fig(mt, data):
         return []
     else:
         df = pd.DataFrame(json.loads(data))
-        # print(df.head())
         df_sum_asin = df.groupby(by=['一级类目']).agg(
             {'买家访问次数': np.sum, '已订购商品数量': np.sum, '已订购商品销售额': np.sum}).reset_index()
         df_sum_asin['转化率'] = df_sum_asin['已订购商品数量'] / df_sum_asin['买家访问次数']
         df_sum_asin['转化率'] = df_sum_asin['转化率'].apply(lambda x: '{:.2%}'.format(x))
         df_sum_asin.sort_values(by=['买家访问次数'], inplace=True, ascending=False)
         fig = get_daily_sum_fig(df_sum_asin, mode='一级类目', title='各一级类目')
-        children = dcc.Graph(figure=fig, className='twelve columns')
+        children = dcc.Graph(figure=fig, className='four columns')
+        return children
+
+
+# 二级类目展示
+@app.callback(Output('asin_cate_two_fig', 'children'),
+              [Input('daily_file_store', 'modified_timestamp'),
+               Input('select_cate_one', 'value')],
+              [State('daily_file_store', 'data')])
+def get_asin_cate_two_fig(mt, cate_one, data):
+    if not all([mt, cate_one, data]):
+        return []
+    else:
+        df = pd.DataFrame(json.loads(data))
+        df = df[df['一级类目'] == cate_one]
+        df_sum_asin = df.groupby(by=['二级类目']).agg(
+            {'买家访问次数': np.sum, '已订购商品数量': np.sum, '已订购商品销售额': np.sum}).reset_index()
+        df_sum_asin['转化率'] = df_sum_asin['已订购商品数量'] / df_sum_asin['买家访问次数']
+        df_sum_asin['转化率'] = df_sum_asin['转化率'].apply(lambda x: '{:.2%}'.format(x))
+        df_sum_asin.sort_values(by=['买家访问次数'], inplace=True, ascending=False)
+        fig = get_daily_sum_fig(df_sum_asin, mode='二级类目', title=cate_one + '-各二级类目-')
+        children = dcc.Graph(figure=fig, className='four columns')
+        return children
+
+
+@app.callback(Output('asin_cate_fsku_fig', 'children'),
+              [Input('daily_file_store', 'modified_timestamp'),
+               Input('select_cate_one', 'value'),
+               Input('select_cate_two', 'value')],
+              [State('daily_file_store', 'data')])
+def get_asin_cate_two_fig(mt, cate_one, cate_two, data):
+    if not all([mt, cate_one, cate_two, (cate_one != 'none'), (cate_two != 'none'), data]):
+        return []
+    else:
+        df = pd.DataFrame(json.loads(data))
+        df = df[(df['一级类目'] == cate_one) & (df['二级类目'] == cate_two)]
+        df_sum_asin = df.groupby(by=['父SKU']).agg(
+            {'买家访问次数': np.sum, '已订购商品数量': np.sum, '已订购商品销售额': np.sum}).reset_index()
+        df_sum_asin['转化率'] = df_sum_asin['已订购商品数量'] / df_sum_asin['买家访问次数']
+        df_sum_asin['转化率'] = df_sum_asin['转化率'].apply(lambda x: '{:.2%}'.format(x))
+        df_sum_asin.sort_values(by=['买家访问次数'], inplace=True, ascending=False)
+        fig = get_daily_sum_fig(df_sum_asin, mode='父SKU', title=cate_two + '-各父sku-')
+        children = dcc.Graph(figure=fig, className='four columns')
         return children
 
 
 # 父级sku月度汇总
 @app.callback(Output('asin_sum_fig', 'children'),
-              [Input('daily_file_store','modified_timestamp')],
-              [State('daily_file_store','data')])
+              [Input('daily_file_store', 'modified_timestamp')],
+              [State('daily_file_store', 'data')])
 def get_asin_sum_fig(mt, data):
     if not (mt and data):
         return []
@@ -493,7 +477,7 @@ def get_asin_sum_fig(mt, data):
                Input('select_fsku', 'value')],
               [State('daily_file_store', 'data')])
 def get_asin_time_fig(mt, fsku, data):
-    if not (mt and fsku and data):
+    if not all([mt, fsku, data]):
         return []
     else:
         df = pd.DataFrame(json.loads(data))
@@ -529,7 +513,7 @@ def get_sub_asin_sum(mt, fsku, data):
 
 
 # 子ASIN月度时域图示
-@app.callback(Output('sub_asin_time_fig','children'),
+@app.callback(Output('sub_asin_time_fig', 'children'),
               [Input('daily_file_store', 'modified_timestamp'),
                Input('select_sku', 'value')],
               [State('daily_file_store', 'data')])
@@ -589,7 +573,7 @@ def get_group(mt, ad_action, file_data, file_name):
               [State('ad_file_store', 'data'),
                State('ad_filename_store', 'data')])
 def get_ad_group(mt, ad_action, ad_group, file_data, file_name):
-    if not (mt and ad_action and file_data and file_name):
+    if not all([mt, ad_action, ad_group, file_data, file_name]):
         return [{'label': 'none', 'value': 'none'}]
     else:
         if file_data:
@@ -634,7 +618,7 @@ def get_ploy_fig(df, title):
         margin={'l': 0, 't': 0, 'r': 0, 'b': 0},
         height=120,
         title=title + '-广告汇总数据'
-        )
+    )
     )
     return fig
 
@@ -792,20 +776,24 @@ def get_daily_time_fig(df, title):
 
 
 # 绘制广告曲线
-def get_ad_fig(df, title):
+def get_ad_fig(df, mode, title):
     fig = go.Figure()
-    fig_bar = go.Bar(x=df[title], y=df['展现量'], yaxis='y', name='展现量', text=df['展现量'], textposition='auto',
-                    hovertemplate='%{text}')
-    fig_line = go.Scatter(x=df[title], y=df['acos'], yaxis='y2', name='acos', mode='lines+markers',
+    fig_bar = go.Bar(x=df[mode], y=df['展现量'], yaxis='y', name='展现量', text=df['展现量'], textposition='auto',
+                     hovertemplate='%{text}')
+    fig_line = go.Scatter(x=df[mode], y=df['acos'], yaxis='y2', name='acos', mode='lines+markers',
                           hovertemplate='%{y}%')
-    fig_line2 = go.Scatter(x=df[title], y=df['转化率'], yaxis='y3', name='转化率', mode='lines+markers',
+    df['acos_目标'] = 50
+    fig_line_half = go.Scatter(x=df[mode], y=df['acos_目标'], yaxis='y2', name='50%acos线', mode='lines',
+                               hovertemplate='%{y}%')
+    fig_line2 = go.Scatter(x=df[mode], y=df['转化率'], yaxis='y3', name='转化率', mode='lines+markers',
                            hovertemplate='%{y}%')
-    fig_line3 = go.Scatter(x=df[title], y=df['花费'], yaxis='y4', name='花费', mode='lines+markers')
-    fig_line4 = go.Scatter(x=df[title], y=df['点击率'], yaxis='y5', name='点击', mode='lines+markers',
+    fig_line3 = go.Scatter(x=df[mode], y=df['花费'], yaxis='y4', name='花费', mode='lines+markers')
+    fig_line4 = go.Scatter(x=df[mode], y=df['点击率'], yaxis='y5', name='点击', mode='lines+markers',
                            hovertemplate='%{y}%')
     fig.add_trace(fig_bar)
     fig.add_trace(fig_line)
     fig.add_trace(fig_line2)
+    fig.add_trace(fig_line_half)
     fig.add_trace(fig_line3)
     fig.add_trace(fig_line4)
     fig.update_xaxes(tickangle=45)
@@ -896,11 +884,11 @@ def get_ad_action_sum_fig(mt, data):
         data_group['转化率'] = (data_group['销量'] / data_group['点击量']).apply(lambda x: '{:.2%}'.format(x))
         data_group.sort_values(['展现量'], inplace=True, ascending=False)
         data_group.reset_index(drop=True, inplace=True)
-        fig = get_ad_fig(data_group, title='广告活动名称')
+        fig = get_ad_fig(data_group, mode='广告活动名称', title='全部')
         children = html.Div([
             dcc.Graph(figure=fig,
                       className='twelve columns',
-                      style={'height':600}),
+                      style={'height': 600}),
         ])
         return children
 
@@ -925,7 +913,7 @@ def get_ad_group_fig(mt, ad_action, data, filename):
         data_group['转化率'] = (data_group['销量'] / data_group['点击量']).apply(lambda x: '{:.2%}'.format(x))
         data_group.sort_values(['展现量'], inplace=True, ascending=False)
         data_group.reset_index(drop=True, inplace=True)
-        fig = get_ad_fig(data_group, title='广告组名称')
+        fig = get_ad_fig(data_group, mode='广告组名称', title=ad_action)
         children = html.Div([
             dcc.Graph(figure=fig,
                       className='six columns'),
@@ -941,7 +929,7 @@ def get_ad_group_fig(mt, ad_action, data, filename):
               [State('ad_file_store', 'data'),
                State('ad_filename_store', 'data')])
 def get_ad_group_fig(mt, ad_action, ad_group, data, filename):
-    if not (mt and ad_action and data):
+    if not all([mt, ad_action, ad_group, data]):
         return []
     else:
         df_row = pd.DataFrame(json.loads(data))
@@ -953,7 +941,7 @@ def get_ad_group_fig(mt, ad_action, ad_group, data, filename):
         data_group['转化率'] = (data_group['销量'] / data_group['点击量']).apply(lambda x: '{:.2%}'.format(x))
         data_group.sort_values(['展现量'], inplace=True, ascending=False)
         data_group.reset_index(drop=True, inplace=True)
-        fig = get_ad_fig(data_group, title='投放')
+        fig = get_ad_fig(data_group, mode='投放', title=ad_group)
         children = html.Div([
             dcc.Graph(figure=fig, className='six columns'),
         ])
@@ -969,7 +957,7 @@ def get_ad_group_fig(mt, ad_action, ad_group, data, filename):
               [State('ad_file_store', 'data'),
                State('ad_filename_store', 'data')])
 def get_ad_group_fig(mt, ad_action, ad_group, ad_words, data, filename):
-    if not (mt and ad_action and data):
+    if not all([mt, ad_action, ad_group, ad_words, data]):
         return []
     else:
         df_row = pd.DataFrame(json.loads(data))
@@ -984,7 +972,7 @@ def get_ad_group_fig(mt, ad_action, ad_group, ad_words, data, filename):
         data_group['转化率'] = (data_group['销量'] / data_group['点击量']).apply(lambda x: '{:.2%}'.format(x))
         data_group.sort_values(['展现量'], inplace=True, ascending=False)
         data_group.reset_index(drop=True, inplace=True)
-        fig = get_ad_fig(data_group, title='客户搜索词')
+        fig = get_ad_fig(data_group, mode='客户搜索词', title=ad_words)
         children = html.Div([
             dcc.Graph(figure=fig, className='twelve columns'),
         ])

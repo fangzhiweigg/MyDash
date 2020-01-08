@@ -84,4 +84,12 @@
 
 }
 
+.my_ul {
+    list-style:none;
+    margin:0;
+}
+.my_ul li{
+    /*list-style:none;*/
+    margin:0;
+}
 
